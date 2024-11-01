@@ -1,0 +1,15 @@
+{
+  "name": "turbovideo-cgb-guten-block",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cgb-scripts start",
+    "build": "cgb-scripts build",
+    "eject": "cgb-scripts eject"
+  },
+  "dependencies": {
+    "babel-loader": "^7.1.5",
+    "cgb-scripts": "1.23.1",
+    "plyr": "^3.7.8"
+  }
+}

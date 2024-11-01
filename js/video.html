@@ -1,0 +1,276 @@
+<html>
+    <head>
+        <title>测试video标题</title>
+        <link rel="stylesheet" href="../css/player-style.css?v=0.0.24" />
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow:hidden;
+            }
+            .plyr:-webkit-full-screen .plyr__video-wrapper {
+                display: flex;
+            }
+            .plyr:fullscreen .plyr__video-wrapper {
+                display: flex;
+            }
+
+            /* 在加载状态时应用特定样式 */
+            .plyr--loading {
+                position: relative;
+                display: flex;
+                justify-content: center;
+            }
+            .plyr--loading::after{
+                position: absolute;
+                content: "";
+                display: block;
+                height: 40px;
+                width: 40px;
+                background-color: transparent;
+                border: solid 4px rgba(255, 245, 245, 0.8);
+                border-top-color: transparent;
+                border-radius: 100%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+            .plyr__poster {
+                pointer-events: none;
+                touch-action: none;
+            }
+ /*
+            .plyr__controls .plyr__controls__item.plyr__time {
+                flex:inherit;
+            }
+            .plyr__time+.plyr__time {
+                flex: 1;
+                text-align: left;
+            }
+            @media (max-width: 767px)
+            {
+                .plyr__controls__item.plyr__time--current.plyr__time {
+                    flex: 1;
+                    text-align: left;
+                }
+            }
+            .plyr__controls__item.plyr__time--duration.plyr__time {
+                flex: 1;
+                text-align: left;
+            } */
+            @keyframes pressing-play-speed-loading {
+                0%{
+                    background-position:0 0;
+                }
+                100%{
+                    background-position:50px 0;
+                }
+            }
+        </style>
+        <script src="./me-player.js?v=0.0.24"></script>
+    </head>
+    <body>
+        <div id="h5vp_player">
+            <div class="h5vp_player h5vp_player_initializer" >
+                <video class="player" id="video" width="100%" style="height: auto; display: block;"/>
+            </div>
+        </div>
+        <script>
+        var videoEl = document.getElementById('video');
+        var iframeEl = window.parent.document.getElementById('vp_video');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        var h5vpPlayer = window.parent.document.getElementById('h5vp_player');
+        h5vpPlayer.style.height = videoEl.offsetHeight + 'px';
+        videoEl.addEventListener('loadedmetadata', function() {
+            var height = videoEl.offsetHeight;
+            h5vpPlayer.style.height = height + 'px';
+            let lastTouchTime = 0;
+            const doubleTapInterval = 300; // 双击间隔时间，例如300毫秒
+
+            // // 为 Plyr 播放器添加双击事件监听器
+            // videoEl.addEventListener('dblclick', handleDoubleClick);
+            function handleDoubleTap(event) {
+                const x = event.changedTouches[0].pageX - videoEl.offsetLeft;
+                const halfWidth = videoEl.offsetWidth / 2;
+                const currentTime = videoEl.currentTime;
+                const duration = videoEl.duration;
+
+                // 双击左半部分时后退，右半部分时快进
+                if (x > halfWidth) {
+                    videoEl.currentTime = Math.min(currentTime + 10, duration); // 快进10秒
+                } else {
+                    videoEl.currentTime = Math.max(currentTime - 10, 0); // 后退10秒
+                }
+            }
+            videoEl.addEventListener('touchend', (event) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTouchTime;
+                if (tapLength < doubleTapInterval && tapLength > 0) {
+                    // 双击事件逻辑
+                    handleDoubleTap(event);
+                }
+                lastTouchTime = currentTime;
+            });
+
+            let touchStatus; // 'longPressing' | 'dragging'
+            let startX = 0;
+            let playStartTime = 0;
+            let newTime = 0;
+            let touchStartTime = 0;
+            let videoInfoEl;
+            let originPlaybackRate = 1;
+            let longPressTimer = -1;
+
+            function formatTime(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+
+                return hours.toString().padStart(2, '0') + ':' +
+                    minutes.toString().padStart(2, '0') + ':' +
+                    remainingSeconds.toString().padStart(2, '0');
+            }
+
+            function createInfoDom() {
+                if (!videoInfoEl) {
+                    videoInfoEl = document.createElement('div');
+                    videoInfoEl.style.position = 'absolute';
+                    videoInfoEl.style.left = '50%';
+                    videoInfoEl.style.fontSize = '12px';
+                    videoInfoEl.style.top = '50%';
+                    videoInfoEl.style.transform = 'translate(-50%, -50%)';
+                    videoInfoEl.style.background = 'rgba(0, 0, 0, 0.5)';
+                    videoInfoEl.style.color = '#fff';
+                    videoInfoEl.style.padding = '2px 5px';
+                    videoInfoEl.style.borderRadius = '3px';
+                    videoInfoEl.style.pointerEvents = 'none';
+                    videoInfoEl.style.zIndex = 999;
+                    videoInfoEl.style.opacity = 0;
+                    videoInfoEl.style.transition = 'opacity 0.3s';
+                    videoEl.parentNode.appendChild(videoInfoEl);
+                }
+                videoInfoEl.style.display = 'block';
+            }
+
+            function updateDraggingInfo(time) {
+                if (videoInfoEl) {
+                    videoInfoEl.style.opacity = 1;
+                    videoInfoEl.innerHTML = formatTime(time) + '/' + formatTime(videoEl.duration);
+                }
+            }
+
+            function updatePressingInfo(time) {
+                if (videoInfoEl) {
+                    videoInfoEl.style.opacity = 0.7;
+                    videoInfoEl.innerHTML = '▶▶▶';
+                    videoInfoEl.style.background = 'linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0%, rgb(0, 0, 0, 0.3) 50% ,rgb(0, 0, 0, 0.1) 100%)';
+                    videoInfoEl.style.backgroundSize = '50px 50px';
+                    videoInfoEl.style.backgroundPosition = '0 0';
+                    videoInfoEl.style.animation = 'pressing-play-speed-loading 0.5s infinite linear';
+                }
+            }
+
+            function hideInfoDom(time) {
+                if (videoInfoEl) {
+                    videoInfoEl.style.opacity = 0;
+                    videoInfoEl.style.background = 'rgba(0, 0, 0, 0.5)';
+                    videoInfoEl.style.animation = undefined;
+                }
+            }
+
+            // 实现video拖动手势
+            videoEl.addEventListener('touchstart', function (e) {
+                if (e.touches.length === 1) {
+                    touchStartTime = Date.now();
+                    startX = e.touches[0].clientX;
+                    newTime = playStartTime = videoEl.currentTime;
+                    originPlaybackRate = videoEl.playbackRate;
+                    createInfoDom();
+                    // 判断是长按
+                    longPressTimer = setTimeout(function() {
+                        if (!touchStatus) {
+                            touchStatus = 'longPressing';
+                            videoEl.playbackRate = 2.0;
+                            updatePressingInfo();
+                        }
+                    }, 500);
+                }
+            });
+            videoEl.addEventListener('touchmove', function (e) {
+                if (e.touches.length === 1) {
+                    const currentX = e.touches[0].clientX;
+                    const deltaX = currentX - startX;
+                    if (!touchStatus) {
+                        // 判断是拖动
+                        if (Math.abs(deltaX) > 20) {
+                            touchStatus = 'dragging';
+                        }
+                    }
+                    if  (touchStatus === 'dragging') {
+                        newTime = Math.min(Math.max(playStartTime + deltaX * (videoEl.duration / videoEl.offsetWidth), 0), videoEl.duration - 1);
+                        // videoEl.currentTime = newTime;
+                        updateDraggingInfo(newTime);
+                    }
+                }
+                e.preventDefault(); // 阻止默认的滚动行为
+            });
+            videoEl.addEventListener('touchend', function (e) {
+                if (touchStatus === 'dragging') {
+                    videoEl.currentTime = newTime;
+                    startX = 0;
+                } else if (touchStatus === 'longPressing') {
+                    videoEl.playbackRate = originPlaybackRate;
+                }
+                hideInfoDom();
+                clearTimeout(longPressTimer);
+                touchStatus = undefined;
+                newTime = playStartTime = 0;
+            })
+            videoEl.addEventListener('touchcancel', function (e) {
+                if (touchStatus === 'dragging') {
+                    startX = 0;
+                } else if (touchStatus === 'longPressing') {
+                    videoEl.playbackRate = originPlaybackRate;
+                }
+                hideInfoDom();
+                clearTimeout(longPressTimer);
+                touchStatus = undefined;
+                newTime = playStartTime = 0;
+            })
+
+        });
+        document.title = window.parent.document.title
+
+        window.parent.addEventListener('resize', function() {
+            var height = videoEl.offsetHeight;
+            h5vpPlayer.style.height = height + 'px';
+        });
+        var src = iframeEl.src;
+
+        var params = new URLSearchParams(new URL(src).search);
+        var h5vp = document.getElementsByClassName("h5vp_player h5vp_player_initializer");
+
+        h5vp[0].setAttribute('data-settings', params.get('data-settings'));
+
+        videoEl.setAttribute('data-poster', decodeURI(params.get('poster')));
+        MEPlayer.init( {
+            swPath: './mp4-proxy.js?v=0.0.24',
+        } );
+        var mp4Player = new MEPlayer(
+            "#video"
+        );
+        mp4Player.load( params.get( 'url' ), {} );
+       </script>
+        <script src="./plyr.js?v=0.0.24"></script>
+        <script src="../js/public.js?v=0.0.24"></script>
+    </body>
+</html>

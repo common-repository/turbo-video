@@ -1,0 +1,31 @@
+/**
+ * #.# Styles
+ *
+ * CSS for both Frontend+Backend.
+ */
+
+.wp-block-cgb-block-p2pvideo  {
+  background: $red;
+  border: 0.2rem solid $black;
+  color: $black;
+  margin: 0 auto;
+  max-width: 740px;
+  padding: 2rem;
+}
+
+
+.wp-block-cgb-video-player {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.wp-block-cgb-video-player input {
+	margin-bottom: 10px;
+	width: 100%;
+}
+
+.wp-block-cgb-video-player video {
+	max-width: 100%;
+}
+
